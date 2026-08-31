@@ -1,4 +1,3 @@
-import { google } from "googleapis";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -13,44 +12,124 @@ const DEFAULT_RANGES = [
 
 function required(name: string) {
   const value = process.env[name];
-  if (!value) throw new Error(`Не задана переменная ${name}`);
-  return value;
+
+  if (!value) {
+    throw new Error(`Не задана переменная ${name}`);
+  }
+
+  return value.replace(/\/+$/, "");
 }
 
-function ranges() {
+function ranges(): string[] {
   const configured = process.env.GOOGLE_SHEET_RANGES;
-  if (!configured) return DEFAULT_RANGES;
-  const parsed: unknown = JSON.parse(configured);
-  if (!Array.isArray(parsed) || !parsed.every((item) => typeof item === "string")) {
-    throw new Error("GOOGLE_SHEET_RANGES должен быть JSON-массивом строк");
+
+  if (!configured) {
+    return DEFAULT_RANGES;
   }
+
+  const parsed: unknown = JSON.parse(configured);
+
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((item) => typeof item === "string")
+  ) {
+    throw new Error(
+      "GOOGLE_SHEET_RANGES должен быть JSON-массивом строк",
+    );
+  }
+
   return parsed;
+}
+
+function parseRange(configuredRange: string) {
+  const separatorPosition = configuredRange.lastIndexOf("!");
+
+  if (separatorPosition === -1) {
+    return {
+      sheetName: configuredRange,
+      cellRange: "A:Z",
+    };
+  }
+
+  return {
+    sheetName: configuredRange.slice(0, separatorPosition),
+    cellRange: configuredRange.slice(separatorPosition + 1),
+  };
+}
+
+async function loadRange(
+  baseUrl: string,
+  configuredRange: string,
+) {
+  const { sheetName, cellRange } = parseRange(configuredRange);
+
+  const url = new URL(baseUrl);
+  url.searchParams.set("sheet", sheetName);
+  url.searchParams.set("range", cellRange);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    cache: "no-store",
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Не удалось загрузить лист «${sheetName}»: HTTP ${response.status}`,
+    );
+  }
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(
+      result.error || `Ошибка чтения листа «${sheetName}»`,
+    );
+  }
+
+  const data = result.data ?? {};
+  const headers = Array.isArray(data.headers) ? data.headers : [];
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+
+  return {
+    range: configuredRange,
+    majorDimension: "ROWS",
+    values: headers.length > 0 ? [headers, ...rows] : rows,
+  };
 }
 
 export async function GET() {
   try {
-    const auth = new google.auth.JWT({
-      email: required("GOOGLE_SERVICE_ACCOUNT_EMAIL"),
-      key: required("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
-    const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: required("GOOGLE_SHEET_ID"),
-      ranges: ranges(),
-      valueRenderOption: "UNFORMATTED_VALUE",
-      dateTimeRenderOption: "FORMATTED_STRING",
-    });
+    const baseUrl = required("GOOGLE_SHEETS_API_URL");
 
-    return NextResponse.json({
-      updatedAt: new Date().toISOString(),
-      source: "google-sheets",
-      ranges: response.data.valueRanges ?? [],
-    });
-  } catch (error) {
-    console.error("Google Sheets API:", error);
+    const valueRanges = await Promise.all(
+      ranges().map((configuredRange) =>
+        loadRange(baseUrl, configuredRange),
+      ),
+    );
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Ошибка чтения Google Sheets" },
+      {
+        updatedAt: new Date().toISOString(),
+        source: "google-sheets-apps-script",
+        ranges: valueRanges,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Google Sheets Apps Script API:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Ошибка чтения Google Sheets",
+      },
       { status: 500 },
     );
   }
