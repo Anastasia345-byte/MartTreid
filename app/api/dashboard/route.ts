@@ -8,27 +8,27 @@ type Row = unknown[];
 const SHEETS = {
   cash: {
     name: "ДДС недельный - по статьям",
-    range: "A2:N200",
+    range: "A2:N8000",
   },
   orders: {
     name: "техн.лист плита - заказы",
-    range: "A2:X2000",
+    range: "A2:X8000",
   },
   debtor: {
     name: "дебиторка (расчет)",
-    range: "A1:C30",
+    range: "A1:C8000",
   },
   factory: {
     name: "Кредиторка по Заводу (1с)",
-    range: "A4:O2000",
+    range: "A4:O8000",
   },
   wallet: {
     name: "Техн.Лист (кошелек)",
-    range: "A2:J2000",
+    range: "A2:J8000",
   },
   account: {
     name: "техн р\\с остатки",
-    range: "A2:B2000",
+    range: "A2:B8000",
   },
 } as const;
 
