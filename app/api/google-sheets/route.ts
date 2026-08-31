@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_RANGES = [
-  "ДДС недельный - по статьям!A1:Z200",
   "техн.лист плита - заказы!A1:Z200",
   "дебиторка (расчет)!A1:Z200",
   "Кредиторка по Заводу (1с)!A1:Z200",
