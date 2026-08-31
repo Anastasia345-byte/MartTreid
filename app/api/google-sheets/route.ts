@@ -4,10 +4,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_RANGES = [
-  "ДДС недельный - по статьям!A1:Z2000",
-  "техн.лист плита - заказы!A1:Z2000",
-  "дебиторка (расчет)!A1:Z2000",
-  "Кредиторка по Заводу (1с)!A1:Z2000",
+  "ДДС недельный - по статьям!A1:Z200",
+  "техн.лист плита - заказы!A1:Z200",
+  "дебиторка (расчет)!A1:Z200",
+  "Кредиторка по Заводу (1с)!A1:Z200",
 ];
 
 function required(name: string) {
@@ -81,11 +81,13 @@ async function loadRange(
 
   const result = await response.json();
 
-  if (!result.success) {
-    throw new Error(
-      result.error || `Ошибка чтения листа «${sheetName}»`,
-    );
-  }
+ if (!result.success) {
+  throw new Error(
+    `Ошибка листа «${sheetName}»: ${
+      result.error || "неизвестная ошибка Apps Script"
+    }`,
+  );
+}
 
   const data = result.data ?? {};
   const headers = Array.isArray(data.headers) ? data.headers : [];
