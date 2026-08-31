@@ -1249,7 +1249,7 @@ function buildLive(data: any, start: string, end: string) {
         x.amount < 0 &&
         /завод|поставщик/i.test(`${x.article} ${x.counterparty}`),
     ),
-    factoryPayments = outgoing(factoryRows),
+    factoryPayments = Number(data.creditor?.payments) || outgoing(factoryRows),
     oldFactoryPayments = outgoing(oldFactoryRows),
     byDay = new Map<string, any>(),
     byManager = new Map<string, number>(),
@@ -1279,15 +1279,18 @@ function buildLive(data: any, start: string, end: string) {
     d.revenue += x.revenue / 1e6;
     byDay.set(x.date, d);
     byManager.set(x.manager, (byManager.get(x.manager) || 0) + x.revenue);
-    if (x.debt > 0) {
-      const name = x.client || x.payer || "Без названия",
-        old = byDebtor.get(name);
-      byDebtor.set(name, {
-        name,
-        value: (old?.value || 0) + x.debt,
-          wallet: /кош|крым|налич/i.test(String(x.paymentType)),
-      });
-    }
+  }
+  const debtOrders = data.orders.filter(
+    (x: any) => x.date && x.date <= end && Number(x.debt) > 0,
+  );
+  for (const x of debtOrders) {
+    const name = x.client || x.payer || "Без названия",
+      old = byDebtor.get(name);
+    byDebtor.set(name, {
+      name,
+      value: (old?.value || 0) + (Number(x.debt) || 0),
+      wallet: /кош|крым|налич|нал\b/i.test(String(x.paymentType)),
+    });
   }
   const managers = [...byManager]
       .sort((a, b) => b[1] - a[1])
@@ -1424,7 +1427,10 @@ export default function Home() {
   useEffect(() => {
     const controller = new AbortController();
     setDataState("loading");
-    fetch(`/api/dashboard?end=${encodeURIComponent(end)}`, { signal: controller.signal })
+    fetch(
+      `/api/dashboard?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      { signal: controller.signal, cache: "no-store" },
+    )
       .then((response) => {
         if (!response.ok) throw new Error("Google Sheets недоступен");
         return response.json();
@@ -1438,7 +1444,7 @@ export default function Home() {
         if (error.name !== "AbortError") setDataState("fallback");
       });
     return () => controller.abort();
-  }, [end]);
+  }, [start, end]);
   const prev = previousRange(start, end),
     live = useMemo(() => buildLive(data, start, end), [data, start, end]);
   return (
