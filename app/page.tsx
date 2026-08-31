@@ -354,14 +354,27 @@ function RankList({
 function Overview({ open, live }: { open: (s: string) => void; live: any }) {
   const cards = [
     {
-      n: "Сбор средств",
-      v: live.incoming,
-      d: live.incomingDelta,
+      n: "Факт сбора — кошелёк",
+      v: live.walletCollection,
+      d: live.walletCollectionDelta,
+      plan: live.walletCollectionPlan,
       primary: true,
     },
-    { n: "Операционные расходы", v: live.outgoing, d: live.outgoingDelta },
-    { n: "Операционный остаток", v: live.net, d: live.netDelta },
-    { n: "Остаток денежных средств", v: live.balance, d: live.balanceDelta },
+    {
+      n: "Факт сбора — расчётный счёт",
+      v: live.accountCollection,
+      d: live.accountCollectionDelta,
+      plan: live.accountCollectionPlan,
+    },
+    {
+      n: "Общий сбор в безнале",
+      v: live.totalCollection,
+      d: live.totalCollectionDelta,
+      plan: live.totalCollectionPlan,
+    },
+    { n: "Операционные расходы", v: live.outgoing, d: live.outgoingDelta, plan: "" },
+    { n: "Операционный остаток", v: live.net, d: live.netDelta, plan: "" },
+    { n: "Остаток денежных средств", v: live.balance, d: live.balanceDelta, plan: "" },
   ];
   return (
     <>
@@ -380,6 +393,11 @@ function Overview({ open, live }: { open: (s: string) => void; live: any }) {
             <small className={String(x.d).startsWith("−") ? "down" : ""}>
               {x.d} <i>к предыдущему периоду</i>
             </small>
+            {x.plan && (
+              <small className={String(x.plan).startsWith("−") ? "down" : ""}>
+                {x.plan} <i>к плану</i>
+              </small>
+            )}
           </button>
         ))}
       </div>
@@ -1257,6 +1275,17 @@ function buildLive(data: any, start: string, end: string) {
       string,
       { name: string; value: number; wallet: boolean }
     >();
+  const collection = data.collection || {},
+    currentCollection = collection.current || {},
+    previousCollection = collection.previous || {},
+    planCollection = collection.plan || {},
+    walletCollection = Number(currentCollection.wallet) || 0,
+    accountCollection = Number(currentCollection.account) || 0,
+    totalCollection = Number(currentCollection.totalConverted) || 0,
+    planDelta = (actual: number, plan: number) =>
+      plan
+        ? `${actual >= plan ? "+" : "−"}${Math.abs((actual / plan - 1) * 100).toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%`
+        : "план не задан";
   for (const x of curCash) {
     const d = byDay.get(x.date) || {
       m: x.date.slice(5).split("-").reverse().join("."),
@@ -1395,6 +1424,21 @@ function buildLive(data: any, start: string, end: string) {
     outgoingDelta: delta(out, oldOut),
     netDelta: delta(net, oldNet),
     balanceDelta: delta(balance, oldBalance),
+    walletCollection,
+    accountCollection,
+    totalCollection,
+    walletCollectionDelta: delta(walletCollection, Number(previousCollection.wallet) || 0),
+    accountCollectionDelta: delta(accountCollection, Number(previousCollection.account) || 0),
+    totalCollectionDelta: delta(
+      totalCollection,
+      Number(previousCollection.totalConverted) || 0,
+    ),
+    walletCollectionPlan: planDelta(walletCollection, Number(planCollection.wallet) || 0),
+    accountCollectionPlan: planDelta(accountCollection, Number(planCollection.account) || 0),
+    totalCollectionPlan: planDelta(
+      totalCollection,
+      Number(planCollection.totalConverted) || 0,
+    ),
     moneySources: [
       { name: "Расчётный счёт", value: accountBalance },
       { name: "Кошелёк", value: walletBalance },
