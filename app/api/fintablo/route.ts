@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ApiItem = Record<string, unknown>;
+const FINTABLO_API_BASE_URL = "https://api.fintablo.ru";
 
 const text = (value: unknown) => (value == null ? "" : String(value).trim());
 const number = (value: unknown) => {
@@ -23,7 +24,7 @@ function toRussianDate(iso: string) {
 }
 
 async function api(path: string, params: Record<string, string | number | undefined> = {}) {
-  const url = new URL(path, `${required("FINTABLO_API_BASE_URL")}/`);
+  const url = new URL(path, `${FINTABLO_API_BASE_URL}/`);
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
   }
