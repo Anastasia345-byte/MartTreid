@@ -102,11 +102,16 @@ export async function GET() {
   try {
     const baseUrl = required("GOOGLE_SHEETS_API_URL");
 
-    const valueRanges = await Promise.all(
-      ranges().map((configuredRange) =>
-        loadRange(baseUrl, configuredRange),
-      ),
-    );
+    const valueRanges = [];
+
+for (const configuredRange of ranges()) {
+  const loadedRange = await loadRange(
+    baseUrl,
+    configuredRange,
+  );
+
+  valueRanges.push(loadedRange);
+}
 
     return NextResponse.json(
       {
